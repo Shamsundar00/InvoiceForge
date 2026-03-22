@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
       languageCode = 'en',
       paperSize = 'A4',
       orientation = 'portrait',
+      hiddenColumns = [], // columns to exclude from rawData / invoice details
     } = body
 
     // 1. Get active source
@@ -178,11 +179,17 @@ export async function POST(request: NextRequest) {
           if (!aiDescription) {
             const name = `${firstName} ${lastName}`.trim()
             const dest = String(row['destination'] || row['venue'] || row['hotel_name'] || '')
-            aiDescription = category === 'Travel' || category === 'Flight'
-              ? `We put together a wonderful travel plan for ${name}${dest ? ` heading to ${dest}` : ''}. Everything is set up so they can enjoy a smooth and comfortable trip from start to finish. We made sure every part of the journey is taken care of, and we hope they have an amazing time creating great memories.`
-              : category === 'Hospitality'
-              ? `We are happy to welcome ${name}${dest ? ` to ${dest}` : ''} for a comfortable and relaxing stay. The rooms and services are all ready to make their visit feel special and easy. We look forward to giving them a wonderful experience they will remember.`
-              : `We are glad to provide our best services to ${name}. Each detail has been carefully handled to make sure they get great value and a smooth experience. We truly appreciate their trust in us and look forward to working together again.`
+            const serviceDesc = String(row['Service Description'] || row['service_description'] || row['service'] || row['package'] || '')
+            
+            if (serviceDesc) {
+              aiDescription = `Provided ${serviceDesc} for ${name}${dest ? ` at ${dest}` : ''}.`
+            } else {
+              aiDescription = category === 'Travel' || category === 'Flight'
+                ? `Travel and transportation arrangements for ${name}${dest ? ` to ${dest}` : ''}.`
+                : category === 'Hospitality'
+                ? `Hospitality services and accommodation for ${name}${dest ? ` at ${dest}` : ''}.`
+                : `Professional services rendered for ${name}.`
+            }
           }
         }
 
@@ -211,7 +218,11 @@ export async function POST(request: NextRequest) {
           generatedDate: new Date(),
           status: 'generated',
           isCurrentVersion: true,
-          rawData: JSON.stringify(row),
+          rawData: JSON.stringify(
+            Object.fromEntries(
+              Object.entries(row).filter(([k]) => !(hiddenColumns as string[]).includes(k))
+            )
+          ),
           batchId,
         })
 

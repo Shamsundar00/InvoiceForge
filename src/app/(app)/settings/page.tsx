@@ -29,10 +29,17 @@ export default function SettingsPage() {
 
   // Company info
   const [companyName, setCompanyName] = useState('')
+  const [companyLogo, setCompanyLogo] = useState('')
   const [companyAddress, setCompanyAddress] = useState('')
   const [companyPhone, setCompanyPhone] = useState('')
   const [companyEmail, setCompanyEmail] = useState('')
   const [companyGST, setCompanyGST] = useState('')
+
+  // Bank & Legal
+  const [bankAccountName, setBankAccountName] = useState('')
+  const [bankAccountNumber, setBankAccountNumber] = useState('')
+  const [bankName, setBankName] = useState('')
+  const [corporateIdentity, setCorporateIdentity] = useState('')
 
   // Tax
   const [defaultTaxRate, setDefaultTaxRate] = useState('18')
@@ -58,10 +65,15 @@ export default function SettingsPage() {
       if (s.groq_api_key) setGroqKey(s.groq_api_key)
       if (s.openai_api_key) setOpenaiKey(s.openai_api_key)
       if (s.company_name) setCompanyName(s.company_name)
+      if (s.company_logo) setCompanyLogo(s.company_logo)
       if (s.company_address) setCompanyAddress(s.company_address)
       if (s.company_phone) setCompanyPhone(s.company_phone)
       if (s.company_email) setCompanyEmail(s.company_email)
       if (s.company_gst) setCompanyGST(s.company_gst)
+      if (s.bank_account_name) setBankAccountName(s.bank_account_name)
+      if (s.bank_account_number) setBankAccountNumber(s.bank_account_number)
+      if (s.bank_name) setBankName(s.bank_name)
+      if (s.corporate_identity) setCorporateIdentity(s.corporate_identity)
       if (s.default_tax_rate) setDefaultTaxRate(s.default_tax_rate)
       if (s.tax_label) setTaxLabel(s.tax_label)
       if (s.fy_start_month) setFyStartMonth(s.fy_start_month)
@@ -115,10 +127,24 @@ export default function SettingsPage() {
     setSaving(true)
     await Promise.all([
       saveSetting('company_name', companyName, 'company'),
+      saveSetting('company_logo', companyLogo, 'company'),
       saveSetting('company_address', companyAddress, 'company'),
       saveSetting('company_phone', companyPhone, 'company'),
       saveSetting('company_email', companyEmail, 'company'),
       saveSetting('company_gst', companyGST, 'company'),
+    ])
+    setSaving(false)
+    setSaveSuccess(true)
+    setTimeout(() => setSaveSuccess(false), 3000)
+  }
+
+  async function handleSaveBankLegalInfo() {
+    setSaving(true)
+    await Promise.all([
+      saveSetting('bank_account_name', bankAccountName, 'company'),
+      saveSetting('bank_account_number', bankAccountNumber, 'company'),
+      saveSetting('bank_name', bankName, 'company'),
+      saveSetting('corporate_identity', corporateIdentity, 'company'),
     ])
     setSaving(false)
     setSaveSuccess(true)
@@ -152,6 +178,7 @@ export default function SettingsPage() {
 
   const settingsSections = [
     { id: 'company', title: 'Company Information', icon: Building2, desc: 'Set your company name, address, logo, and contact details', color: '#6366F1', status: companyName ? 'Configured' : 'Incomplete', statusType: companyName ? 'success' : 'warning' },
+    { id: 'bank', title: 'Bank & Legal', icon: Shield, desc: 'Configure bank account details and corporate identity', color: '#8B5CF6', status: bankAccountName ? 'Configured' : 'Incomplete', statusType: bankAccountName ? 'success' : 'warning' },
     { id: 'tax', title: 'Tax & Pricing', icon: FileText, desc: 'Configure default tax rates, discounts, and cost settings', color: '#10B981', status: `${taxLabel} ${defaultTaxRate}%`, statusType: 'success' },
     { id: 'fy', title: 'Financial Year', icon: Calendar, desc: 'Set financial year start month and invoice numbering format', color: '#F59E0B', status: `Starts ${months[parseInt(fyStartMonth) - 1]}`, statusType: 'success' },
     { id: 'language', title: 'Language Packs', icon: Globe, desc: 'Manage invoice label translations', color: '#3B82F6', status: '12 preset languages', statusType: 'info' },
@@ -274,6 +301,10 @@ export default function SettingsPage() {
                         <input style={inputStyle} value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Your Company Name" />
                       </div>
                       <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block', color: 'var(--text-secondary)' }}>Company Logo URL</label>
+                        <input style={inputStyle} value={companyLogo} onChange={(e) => setCompanyLogo(e.target.value)} placeholder="https://example.com/logo.png" />
+                      </div>
+                      <div>
                         <label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block', color: 'var(--text-secondary)' }}>GST / Tax ID</label>
                         <input style={inputStyle} value={companyGST} onChange={(e) => setCompanyGST(e.target.value)} placeholder="e.g. 29AABCU9603R1ZM" />
                       </div>
@@ -293,6 +324,34 @@ export default function SettingsPage() {
                     <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
                       <button className="btn btn-primary btn-sm" onClick={handleSaveCompanyInfo} disabled={saving}>
                         <Save size={14} /> Save Company Info
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {isOpen && section.id === 'bank' && (
+                  <div className="card" style={{ padding: 20, marginTop: 4, borderTop: 'none', borderTopLeftRadius: 0, borderTopRightRadius: 0 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block', color: 'var(--text-secondary)' }}>Account Name</label>
+                        <input style={inputStyle} value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} placeholder="Sutrula Pvt Ltd" />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block', color: 'var(--text-secondary)' }}>Account Number</label>
+                        <input style={inputStyle} value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} placeholder="1234567890" />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block', color: 'var(--text-secondary)' }}>Bank Name / Branch</label>
+                        <input style={inputStyle} value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="State Bank of India" />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, display: 'block', color: 'var(--text-secondary)' }}>Corporate Identity (UEN/CIN)</label>
+                        <input style={inputStyle} value={corporateIdentity} onChange={(e) => setCorporateIdentity(e.target.value)} placeholder="e.g. 201823120E" />
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+                      <button className="btn btn-primary btn-sm" onClick={handleSaveBankLegalInfo} disabled={saving}>
+                        <Save size={14} /> Save Bank & Legal Info
                       </button>
                     </div>
                   </div>

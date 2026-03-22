@@ -187,6 +187,80 @@ export async function GET() {
   }
 }
 
+// PUT: Save in-browser edits (add/remove rows/columns, cell edits)
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { headers, data } = body as { headers: string[]; data: Record<string, unknown>[] }
+
+    if (!headers || !Array.isArray(headers) || !data || !Array.isArray(data)) {
+      return NextResponse.json({ error: 'headers[] and data[] are required' }, { status: 400 })
+    }
+
+    // Rebuild an XLSX workbook from the edited data
+    const wb = XLSX.utils.book_new()
+    const ws = XLSX.utils.json_to_sheet(data, { header: headers })
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1')
+    const buffer = Buffer.from(XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }))
+
+    // Save file
+    const timestamp = Date.now()
+    const safeFileName = `${timestamp}_edited_source.xlsx`
+    const filePath = await storage.uploadFile(safeFileName, buffer)
+
+    // Hash
+    const crypto = await import('crypto')
+    const fileHash = crypto.createHash('sha256').update(buffer).digest('hex')
+
+    // Auto-detect columns
+    const columnMapping = autoDetectColumns(headers)
+
+    // Validate
+    const validationReport = validateData(headers, data, columnMapping)
+
+    // Deactivate old, create new source
+    await db.deactivateAllSources()
+    const source = await db.createSource({
+      fileName: 'Edited Source.xlsx',
+      filePath,
+      originalFileHash: fileHash,
+      rowCount: data.length,
+      columnCount: headers.length,
+      columnMapping: JSON.stringify(columnMapping),
+      validationStatus: validationReport.overallStatus,
+      validationReport: JSON.stringify(validationReport),
+      isActive: true,
+    })
+
+    await db.createAuditLog({
+      actionType: 'update',
+      actionDetail: `Saved edited data source (${data.length} rows, ${headers.length} columns)`,
+      affectedEntity: 'source',
+      affectedEntityId: source.id,
+    })
+
+    return NextResponse.json({
+      success: true,
+      source: {
+        id: source.id,
+        fileName: 'Edited Source.xlsx',
+        rowCount: data.length,
+        columnCount: headers.length,
+        validationStatus: validationReport.overallStatus,
+      },
+      headers,
+      data: data.slice(0, 500),
+      totalRows: data.length,
+      columnMapping,
+      validationReport,
+    })
+  } catch (error: unknown) {
+    console.error('PUT source error:', error)
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json({ error: `Failed to save edits: ${message}` }, { status: 500 })
+  }
+}
+
 // DELETE: Remove current active source
 export async function DELETE() {
   try {
@@ -373,15 +447,15 @@ function validateData(
     })
   }
 
-  // 6. Special characters in headers
-  const specialHeaders = headers.filter((h) => /[^a-zA-Z0-9_ ]/.test(h))
+  // 6. Special characters in headers (info-only, not a problem)
+  const specialHeaders = headers.filter((h) => /[^a-zA-Z0-9_ %()&.-]/.test(h))
   checks.push({
     name: 'Special characters in headers',
-    severity: 'warning',
-    passed: specialHeaders.length === 0,
+    severity: 'info',
+    passed: true,
     message: specialHeaders.length === 0
       ? 'Headers are clean'
-      : `Headers with special characters: ${specialHeaders.join(', ')}`,
+      : `Headers with special characters (OK): ${specialHeaders.join(', ')}`,
   })
 
   // 7. Row count

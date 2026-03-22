@@ -1,0 +1,160 @@
+Project Location
+c:\Users\91893\Downloads\Shyam Websites\InvoiceForge
+
+PRD Location
+c:\Users\91893\Downloads\Shyam Websites\InvoiceForge\PRD_V1.md — Read this first for full product requirements.
+
+What Is InvoiceForge?
+An AI-powered bulk invoice generation tool built with Next.js 16 + TypeScript + TailwindCSS v4. Users upload an Excel file containing client data (names, amounts, dates, etc.), select/customize invoice templates, optionally generate AI descriptions, and bulk-generate professional PDF invoices with QR codes, sequential numbering, and audit trails.
+
+Tech Stack
+Frontend: Next.js 16 (App Router), React 19, Framer Motion, Lucide Icons, Recharts
+Backend: InsForge.dev (BaaS — replaces Prisma/SQLite)
+AI: Google Gemini via @ai-sdk/google for AI invoice descriptions
+PDF: Server-side HTML-to-PDF generation
+Excel: xlsx library for parsing, exceljs for generating sample templates
+Current Architecture — Dual-Mode Provider Pattern
+The app has an abstraction layer at /src/lib/providers/ that allows switching between a local Prisma backend and the InsForge cloud backend via a single env var DEPLOYMENT_MODE.
+
+File Structure:
+
+src/lib/providers/
+├── types.ts              # Generic interfaces (DatabaseProvider, StorageProvider, AuthProvider)
+├── index.ts              # Factory — exports db, storage, auth based on DEPLOYMENT_MODE
+├── local/
+│   ├── database.ts       # Prisma/SQLite implementation (WORKING)
+│   ├── storage.ts        # Local filesystem storage (WORKING)
+│   └── auth.ts           # Local auth stub
+└── insforge/
+    ├── database.ts       # InsForge SDK implementation (STUB — NEEDS REAL CODE)
+    ├── storage.ts        # InsForge SDK storage (STUB — NEEDS REAL CODE)
+    └── auth.ts           # InsForge SDK auth (STUB — NEEDS REAL CODE)
+Provider Interfaces (types.ts):
+
+typescript
+export interface DatabaseProvider {
+  getSetting(key: string): Promise<any>;
+  updateSetting(key: string, value: any, category?: string): Promise<any>;
+  getAllSettings(category?: string): Promise<any[]>;
+  createAuditLog(data: any): Promise<any>;
+  deactivateAllSources(): Promise<void>;
+  createSource(data: any): Promise<any>;
+  getActiveSource(): Promise<any>;
+  updateSource(id: string, data: any): Promise<any>;
+  deleteSource(id: string): Promise<void>;
+  getDashboardData(): Promise<any>;
+}
+export interface StorageProvider {
+  uploadFile(filename: string, fileData: Buffer): Promise<string>;
+  downloadFile(filePath: string): Promise<Buffer>;
+  deleteFile(filePath: string): Promise<void>;
+}
+export interface AuthProvider {
+  getSession(): Promise<any>;
+}
+Factory (index.ts):
+
+typescript
+const DEPLOYMENT_MODE = process.env.DEPLOYMENT_MODE || "local";
+export const db = DEPLOYMENT_MODE === "insforge" ? insforgeDb : localDb;
+export const storage = DEPLOYMENT_MODE === "insforge" ? insforgeStorage : localStorage;
+export const auth = DEPLOYMENT_MODE === "insforge" ? insforgeAuth : localAuth;
+What's ALREADY Done ✅
+✅ Full UI built for ALL pages (Dashboard, Data Source, Validate Excel, Templates, Generate, Invoice Gallery, Audit & Reports, History, Backup, Settings)
+✅ Provider abstraction layer created
+✅ Local Prisma provider implemented and working
+✅ All API routes refactored to use abstract providers:
+/api/settings/route.ts → uses db
+/api/source/route.ts → uses db + storage
+/api/dashboard/route.ts → uses db
+/api/validate/route.ts → standalone (no DB)
+/api/source/samples/route.ts → sample Excel downloads
+✅ Data Source upload page works (Excel upload, parse, validate, preview)
+✅ Prisma downgraded from v7 to v5.22.0, schema URL hardcoded to file:./dev.db
+✅ prisma db push --skip-generate has been run to create tables
+What's NOT Working / Needs To Be Done ❌
+❌ InsForge stubs need real SDK code — Replace all console.log stubs with actual @insforge/sdk calls
+❌ Templates page — needs API routes + DB integration for CRUD template management
+❌ Generate page — needs full 6-step pipeline wired: confirm source → select template → configure settings → AI descriptions → preview → generate PDFs
+❌ Invoice Gallery — needs API routes to list/view/download generated invoices
+❌ Settings page — needs real settings persistence (company info, tax config, numbering format, branding)
+❌ Dashboard — needs real stats from DB (total invoices, revenue, recent batches, activity)
+❌ Audit & Reports — needs API for audit log entries
+❌ History page — needs batch generation history
+❌ Backup page — needs export/import functionality
+❌ PDF Generation Engine — the core feature: HTML template → PDF with QR codes, sequential numbers, calculations
+❌ AI Description Generation — Gemini API integration for auto-generating invoice line item descriptions
+InsForge SDK Reference (Already Researched)
+Install:
+
+bash
+npm install @insforge/sdk
+Initialize (Server-side for Next.js):
+
+typescript
+import { createClient } from '@insforge/sdk';
+const insforge = createClient({
+  baseUrl: process.env.INSFORGE_URL || 'http://localhost:7130',
+  isServerMode: true,
+});
+Database CRUD (PostgREST-style):
+
+typescript
+// SELECT
+const { data, error } = await insforge.database.from('sources').select('*').eq('is_active', true);
+// INSERT
+const { data, error } = await insforge.database.from('sources').insert([{ fileName: 'test.xlsx', rowCount: 100 }]);
+// UPDATE
+const { data, error } = await insforge.database.from('sources').update({ is_active: false }).eq('id', sourceId);
+// DELETE
+const { data, error } = await insforge.database.from('sources').delete().eq('id', sourceId);
+Storage:
+
+typescript
+await insforge.storage.from('uploads').upload(file);
+await insforge.storage.from('uploads').download('filename.xlsx');
+await insforge.storage.from('uploads').remove(['filename.xlsx']);
+Auth:
+
+typescript
+await insforge.auth.signInWithPassword({ email, password });
+await insforge.auth.getCurrentUser();
+await insforge.auth.signOut();
+AI:
+
+typescript
+await insforge.ai.completion({ model: 'gpt-3.5-turbo', prompt: 'Generate invoice description for...' });
+Database Tables Needed (from Prisma schema at prisma/schema.prisma):
+Table	Key Columns
+Source	id, fileName, filePath, originalFileHash, rowCount, columnCount, columnMapping, validationStatus, validationReport, isActive, uploadDate
+Settings	id, key, value, category, updatedAt
+AuditLog	id, actionType, actionDetail, affectedEntity, affectedEntityId, metadata, timestamp
+BatchGeneration	id, batchId, totalInvoices, successfulCount, errorCount, totalRevenue, generationDate, templateUsed, sourceId
+Invoice	id, invoiceNumber, clientName, amount, taxAmount, totalAmount, description, status, pdfPath, batchId, generationDate
+Template	id, name, category, description, htmlContent, cssContent, thumbnailPath, isDefault, createdAt
+Environment Variables Needed in .env:
+env
+DEPLOYMENT_MODE=insforge
+INSFORGE_URL=https://your-instance.insforge.dev
+INSFORGE_API_KEY=your-api-key
+GOOGLE_GENERATIVE_AI_API_KEY=your-gemini-key
+Execution Order (Priority)
+Install @insforge/sdk and create the InsForge client singleton
+Create all tables in InsForge (via SDK or dashboard)
+Rewrite InsForge provider stubs (insforge/database.ts, insforge/storage.ts, insforge/auth.ts) with real SDK code
+Switch DEPLOYMENT_MODE=insforge in .env
+Wire up ALL pages end-to-end:
+Dashboard → real stats
+Data Source → already works, verify with InsForge
+Validate → already works (standalone)
+Templates → CRUD API + page wiring
+Generate → full 6-step pipeline
+Invoice Gallery → list/view/download
+Settings → persist company info, tax, numbering
+Audit & Reports → display audit logs
+History → batch generation history
+Backup → export/import
+Build PDF Generation Engine — HTML templates → PDF with QR codes
+Add AI Descriptions — Gemini integration for invoice line items
+Test everything end-to-end
+Please proceed step by step. Read the PRD first, then execute each item. Make ALL pages functional with the InsForge backend.

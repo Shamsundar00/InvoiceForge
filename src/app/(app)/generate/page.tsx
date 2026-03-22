@@ -41,6 +41,7 @@ export default function GeneratePage() {
   const [generationResult, setGenerationResult] = useState<any>(null)
   const [aiDescriptions, setAiDescriptions] = useState<any[]>([])
   const [generatingAI, setGeneratingAI] = useState(false)
+  const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     async function load() {
@@ -120,6 +121,7 @@ export default function GeneratePage() {
           enableQR,
           enableAI,
           paperSize,
+          hiddenColumns: Array.from(hiddenColumns),
         }),
       })
       const json = await res.json()
@@ -221,23 +223,48 @@ export default function GeneratePage() {
                     </div>
                   </div>
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                  Preview of first 5 rows:
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Preview of first 5 rows — click 👁 to show/hide columns on the invoice:</span>
+                  {hiddenColumns.size > 0 && (
+                    <span style={{ fontSize: 11, background: 'var(--color-warning-light)', color: 'var(--color-warning)', padding: '2px 8px', borderRadius: 12, fontWeight: 600 }}>
+                      {hiddenColumns.size} column(s) hidden
+                    </span>
+                  )}
                 </div>
-                <div style={{ overflowX: 'auto', maxHeight: 200, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
+                <div style={{ overflowX: 'auto', maxHeight: 300, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
                   <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-secondary)' }}>
-                        {Object.keys(sourceData[0] || {}).slice(0, 6).map(h => (
-                          <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '1px solid var(--border-primary)' }}>{h}</th>
-                        ))}
+                        {Object.keys(sourceData[0] || {}).map(h => {
+                          const isHidden = hiddenColumns.has(h)
+                          return (
+                            <th key={h} style={{ padding: '8px 10px', textAlign: 'left', fontWeight: 600, whiteSpace: 'nowrap', borderBottom: '1px solid var(--border-primary)', opacity: isHidden ? 0.4 : 1, position: 'relative', minWidth: 90 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <button
+                                  onClick={() => {
+                                    setHiddenColumns(prev => {
+                                      const next = new Set(prev)
+                                      if (next.has(h)) next.delete(h); else next.add(h)
+                                      return next
+                                    })
+                                  }}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, lineHeight: 1, fontSize: 14, color: isHidden ? 'var(--color-error)' : 'var(--color-success)' }}
+                                  title={isHidden ? `Show "${h}" on invoice` : `Hide "${h}" from invoice`}
+                                >
+                                  {isHidden ? '🚫' : '👁'}
+                                </button>
+                                <span style={{ textDecoration: isHidden ? 'line-through' : 'none' }}>{h}</span>
+                              </div>
+                            </th>
+                          )
+                        })}
                       </tr>
                     </thead>
                     <tbody>
                       {sourceData.slice(0, 5).map((row, i) => (
                         <tr key={i} style={{ borderBottom: '1px solid var(--border-secondary)' }}>
-                          {Object.keys(row).slice(0, 6).map(k => (
-                            <td key={k} style={{ padding: '6px 12px', whiteSpace: 'nowrap' }}>{String(row[k])}</td>
+                          {Object.keys(row).map(k => (
+                            <td key={k} style={{ padding: '6px 10px', whiteSpace: 'nowrap', opacity: hiddenColumns.has(k) ? 0.3 : 1 }}>{String(row[k])}</td>
                           ))}
                         </tr>
                       ))}

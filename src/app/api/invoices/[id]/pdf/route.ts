@@ -51,10 +51,15 @@ export async function GET(
       languageCode: invoice.languageCode || 'en',
       rawData: invoice.rawData || undefined,
       companyName: settingsMap['company_name'] || undefined,
+      companyLogo: settingsMap['company_logo'] || undefined,
       companyAddress: settingsMap['company_address'] || undefined,
       companyPhone: settingsMap['company_phone'] || undefined,
       companyEmail: settingsMap['company_email'] || undefined,
       companyGST: settingsMap['company_gst'] || undefined,
+      bankAccountName: settingsMap['bank_account_name'] || undefined,
+      bankAccountNumber: settingsMap['bank_account_number'] || undefined,
+      bankName: settingsMap['bank_name'] || undefined,
+      corporateIdentity: settingsMap['corporate_identity'] || undefined,
     }, { size: paperSize, orientation })
 
     // Generate PDF
